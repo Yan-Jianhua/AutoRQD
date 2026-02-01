@@ -3,7 +3,7 @@ A four stage cascaded framework that integrates YOLO11 and SAM for automated Roc
 **Note:** The source codes will be made publicly available upon acceptance of the paper.
 
 # License
-Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations from Ultralytics, which are licensed under the AGPL-3.0 License. Our project code is released under the MIT License.
+Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations from Ultralytics, which are licensed under the AGPL-3.0 License and Apache 2.0 License, respectively. Our project code is released under the MIT License.
 
 # Citations
 If you find our work useful, please consider citing our paper (citation details will be available upon publication).
