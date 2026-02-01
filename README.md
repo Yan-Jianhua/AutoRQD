@@ -8,7 +8,7 @@ Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations
 # Citations
 If you find our work useful, please consider citing our paper (citation details will be available upon publication).
 Additionally, this project is built upon the following foundational works. Please also cite them if you use our code:
-**YOLOv11:**
+**YOLO11:**
 @software{yolo11_ultralytics,
   author = {Glenn Jocher and Jing Qiu},
   title = {Ultralytics YOLO11},
