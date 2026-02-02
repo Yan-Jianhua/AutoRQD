@@ -1,0 +1,5 @@
+train: E:\***\***\dataset\images\train
+val: E:\***\***\dataset\images\val
+
+nc: 1 #number of categories
+names: ['Intact Core']
