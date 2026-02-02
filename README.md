@@ -62,22 +62,25 @@ dataset/
 ```
 ## Dataset preparation
 To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the dataset into train/val/test sets, modify the paths in **preprocess_mydataset.py** and run the following command:
-```bash
+```
 python preprocess_mydataset.py
 ```
 ## Model training
 To train the YOLO11 on your core box dataset, first updata the **data.yaml** configuration file with your dataset paths. Then, modify the parameters in **train_mydataset.py** and run the following command: 
-```bash
+```
 python train_mydataset.py
 ```
 ## Model evaluation
 The **test_metrcis.py** script evaluates the trained YOLO11 performance on test datasets. It calculates four evaluation metrics including precision, recall, mAP@50, and mAP@50-95 for quantitative model assessment. To evaluate the performance of the trained YOLO11 on unseen dataset, first updata the **test.yaml** configuration file with your dataset paths. Then, modify the parameters in **test_metrcis.py** and run the following command: 
-```bash
+```
 python test_metrcis.py
 ```
 
-## RQD calculation
-
+## RQD calculation and visualization
+The **rqd_calculation.py** script performs RQD analysis on core box images using YOLO11-SAM. It detects core segments, calculates RQD values along multiple scanlines, and provides an interactive visualization interface with real-time parameter adjustment. To perform RQD analysis on a single core box image, first update the configuration parameters in **rqd_calculation.py** with your model paths, image path, and output directory. Then run the following command:
+```
+python rqd_calculation.py.py
+```
 
 # Citations and acknowledgements
 If you find our work useful, please consider citing our paper (citation details will be available upon publication).
