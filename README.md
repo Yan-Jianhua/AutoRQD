@@ -5,6 +5,13 @@ A four stage cascaded framework that integrates YOLO11 and SAM for automated Roc
 # License
 Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations from Ultralytics, which are licensed under the AGPL-3.0 License and the Apache 2.0 License, respectively. Our project code is released under the MIT License.
 
+# Installation
+1. First, obtain the correct PyTorch installation command for your system from the official PyTorch website.
+2. Then, install the remaining dependencies for this project.
+```
+pip install -r requirements.txt
+```
+
 # Usage
 ## Dataset structure
 ### Raw dataset
