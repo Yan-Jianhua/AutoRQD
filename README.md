@@ -59,13 +59,15 @@ To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the da
 python preprocess_mydataset.py
 ```
 ## Model training
-To train the YOLO11 on your core box dataset, first updata the **data.yamal** configuration file with your dataset paths. Then, modify the parameters in **train_mydataset.py** and run the following command: 
+To train the YOLO11 on your core box dataset, first updata the **data.yaml** configuration file with your dataset paths. Then, modify the parameters in **train_mydataset.py** and run the following command: 
 ```bash
 python train_mydataset.py
 ```
 ## Model evaluation
-
-
+The **test_metrcis.py** script evaluates the trained YOLO11 performance on test datasets. It calculates four evaluation metrics including precision, recall, mAP@50, and mAP@50-95 for quantitative model assessment. To evaluate the performance of the trained YOLO11 on unseen dataset, first updata the **test.yaml** configuration file with your dataset paths. Then, modify the parameters in **test_metrcis.py** and run the following command: 
+```bash
+python test_metrcis.py
+```
 
 ## RQD calculation
 
