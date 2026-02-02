@@ -1,0 +1,15 @@
+ultralytics>=8.3.155
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+opencv-python>=4.8.1
+numpy>=1.24.0
+pandas>=1.5.3
+matplotlib>=3.10.3
+seaborn>=0.12.1
+scikit-learn>=1.7.0
+scipy>=1.15.3
+pillow>=11.2.1
+tqdm>=4.67.1
+pyyaml>=6.0.2
+requests>=2.32.4
