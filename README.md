@@ -13,7 +13,7 @@ To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the da
 python preprocess_mydataset.py
 ```
 ## Model training
-To train the YOLO11 on your core box dataset, run the following command: 
+To train the YOLO11 on your core box dataset, first updata the data.yamal configuration file with your dataset paths. Then, modify the parameters in train_mydataset.py and run the following command: 
 ```bash
 python train_mydataset.py
 ```
