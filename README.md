@@ -7,8 +7,11 @@ Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations
 
 # Usage
 ## Model training
-To train the YOLO11 on your core box dataset, run the following command: ```bash python train_mydataset.py
+To train the YOLO11 on your core box dataset, run the following command: 
 
+```bash
+python train_mydataset.py
+```
 
 # Citations
 If you find our work useful, please consider citing our paper (citation details will be available upon publication).
