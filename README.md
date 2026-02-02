@@ -22,17 +22,52 @@ raw_dataset/
     ├── core_box_003.json
     └── ...
 ```
+### Precessed dataset in YOLO format
+After running **preprocess_mydataset.py**, your dataset will be organized in YOLO format:
+```
+dataset/
+├── images/
+│   ├── train/           # Training images (60% of total)
+│   │   ├── core_box_001.jpg
+│   │   ├── core_box_002.jpg
+│   │   └── ...
+│   ├── val/             # Validation images (20% of total)
+│   │   ├── core_box_101.jpg
+│   │   ├── core_box_102.jpg
+│   │   └── ...
+│   └── test/            # Test images (20% of total)
+│       ├── core_box_201.jpg
+│       ├── core_box_202.jpg
+│       └── ...
+└── labels/
+    ├── train/           # Training labels
+    │   ├── core_box_001.txt
+    │   ├── core_box_002.txt
+    │   └── ...
+    ├── val/             # Validation labels
+    │   ├── core_box_101.txt
+    │   ├── core_box_102.txt
+    │   └── ...
+    └── test/            # Test labels
+        ├── core_box_201.txt
+        ├── core_box_202.txt
+        └── ...
+```
 ## Dataset preparation
-To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the dataset into train/val/test sets, modify the paths in preprocess_mydataset and run the following command:
+To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the dataset into train/val/test sets, modify the paths in **preprocess_mydataset.py** and run the following command:
 ```bash
 python preprocess_mydataset.py
 ```
 ## Model training
-To train the YOLO11 on your core box dataset, first updata the data.yamal configuration file with your dataset paths. Then, modify the parameters in train_mydataset.py and run the following command: 
+To train the YOLO11 on your core box dataset, first updata the **data.yamal** configuration file with your dataset paths. Then, modify the parameters in **train_mydataset.py** and run the following command: 
 ```bash
 python train_mydataset.py
 ```
+## Model evaluation
 
+
+
+## RQD calculation
 
 
 # Citations and acknowledgements
