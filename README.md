@@ -6,12 +6,19 @@ A four stage cascaded framework that integrates YOLO11 and SAM for automated Roc
 Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations from Ultralytics, which are licensed under the AGPL-3.0 License and the Apache 2.0 License, respectively. Our project code is released under the MIT License.
 
 # Usage
+
+## Data preparation
+To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the dataset into train/val/test sets, modify the paths in preprocess_mydataset and run the following command:
+```bash
+python preprocess_mydataset.py
+```
 ## Model training
 To train the YOLO11 on your core box dataset, run the following command: 
-
 ```bash
 python train_mydataset.py
 ```
+
+
 
 # Citations
 If you find our work useful, please consider citing our paper (citation details will be available upon publication).
