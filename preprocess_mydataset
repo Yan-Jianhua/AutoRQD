@@ -1,0 +1,140 @@
+# -*- coding: utf-8 -*-
+
+import cv2
+import os
+import json
+import glob
+import numpy as np
+import shutil
+from sklearn.model_selection import train_test_split
+
+
+def json_to_yolo(json_path, output_folder_img, output_folder_label):
+    json_files = glob.glob(json_path + "/*.json")
+    print(json_files)
+
+    if not os.path.exists(output_folder_img):
+        os.makedirs(output_folder_img)
+    if not os.path.exists(output_folder_label):
+        os.makedirs(output_folder_label)
+
+    for json_file in json_files:
+        print(json_file)
+        with open(json_file, 'r') as f:
+            json_info = json.load(f)
+
+        img = cv2.imread(os.path.join(json_path, json_info["imagePath"]))
+        height, width, _ = img.shape
+        np_w_h = np.array([[width, height]], np.int32)
+
+        img_output_path = os.path.join(output_folder_img, json_info["imagePath"])
+        cv2.imwrite(img_output_path, img)
+
+        txt_file = os.path.join(output_folder_label, os.path.basename(json_file).replace(".json", ".txt"))
+        with open(txt_file, "w") as f:
+            for point_json in json_info["shapes"]:
+                txt_content = ""
+                np_points = np.array(point_json["points"], np.int32)
+                norm_points = np_points / np_w_h
+                norm_points_list = norm_points.tolist()
+                txt_content += "0 " + " ".join(
+                    [" ".join([str(cell[0]), str(cell[1])]) for cell in norm_points_list]) + "\n"
+                f.write(txt_content)
+
+
+def split_dataset(val_size, test_size, imgpath, txtpath,
+                  output_train_img_folder, output_val_img_folder, output_test_img_folder,
+                  output_train_txt_folder, output_val_txt_folder, output_test_txt_folder,
+                  postfix='jpg'):
+    # Ensure all output directories exist
+    os.makedirs(output_train_img_folder, exist_ok=True)
+    os.makedirs(output_val_img_folder, exist_ok=True)
+    os.makedirs(output_test_img_folder, exist_ok=True)
+    os.makedirs(output_train_txt_folder, exist_ok=True)
+    os.makedirs(output_val_txt_folder, exist_ok=True)
+    os.makedirs(output_test_txt_folder, exist_ok=True)
+
+    # Get all txt file list
+    listdir = [i for i in os.listdir(txtpath) if 'txt' in i]
+
+    # First split: separate training set and temporary set (validation + test)
+    train, temp = train_test_split(listdir, test_size=(val_size + test_size),
+                                   shuffle=True, random_state=0)
+
+    # Second split: separate temporary set into validation set and test set
+    # Calculate test set ratio in temporary set
+    test_ratio_in_temp = test_size / (val_size + test_size)
+    val, test = train_test_split(temp, test_size=test_ratio_in_temp,
+                                 shuffle=True, random_state=0)
+
+    # Copy training set files
+    for i in train:
+        img_source_path = os.path.join(imgpath, f'{i[:-4]}.{postfix}')
+        txt_source_path = os.path.join(txtpath, i)
+
+        img_dest_path = os.path.join(output_train_img_folder, f'{i[:-4]}.{postfix}')
+        txt_dest_path = os.path.join(output_train_txt_folder, i)
+
+        shutil.copy(img_source_path, img_dest_path)
+        shutil.copy(txt_source_path, txt_dest_path)
+
+    # Copy validation set files
+    for i in val:
+        img_source_path = os.path.join(imgpath, f'{i[:-4]}.{postfix}')
+        txt_source_path = os.path.join(txtpath, i)
+
+        img_dest_path = os.path.join(output_val_img_folder, f'{i[:-4]}.{postfix}')
+        txt_dest_path = os.path.join(output_val_txt_folder, i)
+
+        shutil.copy(img_source_path, img_dest_path)
+        shutil.copy(txt_source_path, txt_dest_path)
+
+    # Copy test set files
+    for i in test:
+        img_source_path = os.path.join(imgpath, f'{i[:-4]}.{postfix}')
+        txt_source_path = os.path.join(txtpath, i)
+
+        img_dest_path = os.path.join(output_test_img_folder, f'{i[:-4]}.{postfix}')
+        txt_dest_path = os.path.join(output_test_txt_folder, i)
+
+        shutil.copy(img_source_path, img_dest_path)
+        shutil.copy(txt_source_path, txt_dest_path)
+
+
+def main():
+    json_path = r"E:\PythonProject\Dataset_Split\RQD\jsons"  # JSON annotation file path
+    output_folder_img = r'E:\PythonProject\Dataset_Split\RQD\images'  # Image dataset path
+    output_folder_label = r'E:\PythonProject\Dataset_Split\RQD\txt'  # Label save path
+
+    # Convert JSON to YOLO format
+    json_to_yolo(json_path, output_folder_img, output_folder_label)
+
+    val_size = 0.2  # Validation set ratio
+    test_size = 0.2  # Test set ratio
+    imgpath = output_folder_img  # Use converted image path
+    txtpath = output_folder_label  # Use converted label path
+
+    # Output split paths
+    output_train_img_folder = r'E:\PythonProject\Dataset_Split\RQD\dataset\images\train'
+    output_val_img_folder = r'E:\PythonProject\Dataset_Split\RQD\dataset\images\val'
+    output_test_img_folder = r'E:\PythonProject\Dataset_Split\RQD\dataset\images\test'
+    output_train_txt_folder = r'E:\PythonProject\Dataset_Split\RQQ\dataset\labels\train'
+    output_val_txt_folder = r'E:\PythonProject\Dataset_Split\RQD\dataset\labels\val'
+    output_test_txt_folder = r'E:\PythonProject\Dataset_Split\RQD\dataset\labels\test'
+
+    split_dataset(
+        val_size=val_size,
+        test_size=test_size,
+        imgpath=imgpath,
+        txtpath=txtpath,
+        output_train_img_folder=output_train_img_folder,
+        output_val_img_folder=output_val_img_folder,
+        output_test_img_folder=output_test_img_folder,
+        output_train_txt_folder=output_train_txt_folder,
+        output_val_txt_folder=output_val_txt_folder,
+        output_test_txt_folder=output_test_txt_folder
+    )
+
+
+if __name__ == "__main__":
+    main()
