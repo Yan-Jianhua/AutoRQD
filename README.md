@@ -1,4 +1,4 @@
-# AutoRQD
+# Introduction
 A four stage cascaded framework that integrates YOLO11 and SAM for automated Rock Quality Designation (RQD) estimation from rectified core box images.
 **Note:** The source codes will be made publicly available upon acceptance of the paper.
 
@@ -6,8 +6,23 @@ A four stage cascaded framework that integrates YOLO11 and SAM for automated Roc
 Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations from Ultralytics, which are licensed under the AGPL-3.0 License and the Apache 2.0 License, respectively. Our project code is released under the MIT License.
 
 # Usage
-
-## Data preparation
+## Dataset structure
+### Raw dataset
+Organize your original images and LabelMe JSON annotations in this structure:
+```
+raw_dataset/
+├── images/
+│   ├── core_box_001.jpg
+│   ├── core_box_002.jpg
+│   ├── core_box_003.jpg
+│   └── ...
+└── annotations/
+    ├── core_box_001.json
+    ├── core_box_002.json
+    ├── core_box_003.json
+    └── ...
+```
+## Dataset preparation
 To convert JSON annotations (e.g., from LabelMe) to YOLO format and split the dataset into train/val/test sets, modify the paths in preprocess_mydataset and run the following command:
 ```bash
 python preprocess_mydataset.py
@@ -20,7 +35,7 @@ python train_mydataset.py
 
 
 
-# Citations
+# Citations and acknowledgements
 If you find our work useful, please consider citing our paper (citation details will be available upon publication).
 Additionally, this project is built upon the following foundational works. Please also cite them if you use our code:
 ## **YOLO11:**
