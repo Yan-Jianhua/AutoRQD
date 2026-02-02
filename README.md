@@ -7,14 +7,14 @@ Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations
 
 # Installation
 1. First, obtain the correct PyTorch installation command for your system from the official PyTorch website.
-2. Then, install the remaining dependencies for this project.
+2. Then, install the remaining dependencies for this project bu running the following command:
 ```
 pip install -r requirements.txt
 ```
 
 # Usage
 ## Dataset structure
-### Raw dataset
+### Dats arrangement
 Organize your original images and LabelMe JSON annotations in this structure:
 ```
 raw_dataset/
@@ -29,8 +29,8 @@ raw_dataset/
     ├── core_box_003.json
     └── ...
 ```
-### Precessed dataset in YOLO format
-After running **preprocess_mydataset.py**, your dataset will be organized in YOLO format:
+### Dataset in YOLO format
+After running **preprocess_mydataset.py**, your dataset will be organized in the YOLO format, as below:
 ```
 dataset/
 ├── images/
