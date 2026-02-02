@@ -1,0 +1,6 @@
+train: E:\PythonProject\RQD\dataset\images\train
+val: E:\PythonProject\RQD\dataset\images\val
+test: E:\PythonProject\RQD\dataset\images\test
+
+nc: 1
+names: ['Intact Core']
