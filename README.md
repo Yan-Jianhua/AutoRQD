@@ -7,7 +7,7 @@ Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations
 
 # Installation
 1. First, obtain the correct PyTorch installation command for your system from the official PyTorch website.
-2. Then, install the remaining dependencies for this project bu running the following command:
+2. Then, install the remaining dependencies for this project by running the following command:
 ```
 pip install -r requirements.txt
 ```
