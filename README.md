@@ -1,6 +1,5 @@
 # Introduction
 A four stage cascaded framework that integrates YOLO11 and SAM for automated Rock Quality Designation (RQD) estimation from rectified core box images.
-**Note:** The source codes will be made publicly available upon acceptance of the paper.
 
 # License
 Our work builds upon the YOLO11 and Segment Anything Model (SAM) implementations from Ultralytics, which are licensed under the AGPL-3.0 License and the Apache 2.0 License, respectively. Our project code is released under the MIT License.
@@ -79,12 +78,11 @@ python test_metrcis.py
 ## RQD calculation and visualization
 The **rqd_calculation.py** script performs RQD analysis on core box images using YOLO11-SAM. It detects core segments, calculates RQD values along multiple scanlines, and provides an interactive visualization interface with real-time parameter adjustment. To perform RQD analysis on a single core box image, first update the configuration parameters in **rqd_calculation.py** with your model paths, image path, and output directory. Then run the following command:
 ```
-python rqd_calculation.py.py
+python rqd_calculation.py
 ```
 
 # Citations and acknowledgements
-If you find our work useful, please consider citing our paper (citation details will be available upon publication).
-Additionally, this project is built upon the following foundational works. Please also cite them if you use our code:
+If you find our work useful, please consider citing our paper entitled "A Zero-Shot Segmentation Framework with Detection Prompts for Automated Rock Quality Designation (RQD) Estimation from Core Box Images" (https://doi.org/10.1016/j.asoc.2026.114886). Additionally, this project is built upon the following foundational works. Please also cite them if you use our code:
 ## **YOLO11:**
 @software{yolo11_ultralytics,
   author = {Glenn Jocher and Jing Qiu},
