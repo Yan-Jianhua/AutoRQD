@@ -1,1 +1,637 @@
-The source codes will be made publicly available upon acceptance of the paper.
+# -*- coding: utf-8 -*-
+from ultralytics import YOLO
+from ultralytics import SAM
+import cv2
+import numpy as np
+import os
+
+# ==================== Configuration Parameters ====================
+# Path configuration
+MODEL_YOLO_PATH = r'E:\best.pt'  # YOLO model weights
+MODEL_SAM_PATH = r'E:\sam2.1_l.pt'  # SAM model weights
+SOURCE_IMAGE_PATH = r'E:\***.jpg'  # Input image path
+SAVE_DIRECTORY = r'E:\***'  # Output save directory
+
+# Scanline configuration
+ROW_COUNT = 8  # Number of scanlines (adjust based on the actual core box rows)
+
+# Visualization parameters
+CONTOUR_THICKNESS = 2  # Thickness of contour lines
+FILL_COLOR = [190, 196, 196]  # Fill color for core segments (B, G, R)
+LINE_THICKNESS = 2  # Thickness of intersection lines
+POINT_SIZE = 10  # Size of intersection points
+TEXT_SCALE = 2.0  # Scale for rock length text
+RQD_TEXT_SCALE = 2.0  # Scale for RQD text
+ROCK_LENGTH_TEXT_OFFSET = -70  # Offset for rock length text (positive above scanline, negative below)
+
+# Drawing toggles (1 = ON, 0 = OFF)
+DRAW_POINTS = 1  # Draw intersection points
+DRAW_LINES = 1  # Draw intersection lines
+DRAW_TEXTS = 1  # Draw text annotations
+DRAW_SCANLINES = 1  # Draw scanlines
+SCANLINE_THICKNESS = 1  # Thickness of scanlines
+
+# Mask filtering parameter
+OVERLAP_THRESHOLD = 0.9  # Threshold for filtering overlapping masks
+
+
+# Function to create value input box (simulated with trackbar)
+def create_value_input_box(window_name, trackbar_name, initial_value, min_val, max_val, callback, x_offset=0,
+                           y_offset=0):
+    """Create a simulated input box using trackbar and text display"""
+    # Create trackbar with shortened name for better display
+    short_name = trackbar_name[:10] if len(trackbar_name) > 10 else trackbar_name
+    trackbar_id = cv2.createTrackbar(short_name, window_name, initial_value, max_val, callback)
+
+    # We'll display the full name and value in the control panel instead
+    return trackbar_id
+
+
+# ==================== End Configuration ====================
+
+# Load YOLO model
+model_yolo = YOLO(model=MODEL_YOLO_PATH)
+
+# Predict with YOLO model
+results_yolo = model_yolo.predict(source=SOURCE_IMAGE_PATH, save=False, show=False, retina_masks=True)
+im = cv2.imread(SOURCE_IMAGE_PATH)
+
+# Extract base filename from source path
+base_name = os.path.splitext(os.path.basename(SOURCE_IMAGE_PATH))[0]
+
+# Load SAM model
+model_SAM = SAM(model=MODEL_SAM_PATH)
+
+# Core box dimensions
+box_w, box_l = im.shape[0], im.shape[1]
+
+# RQD storage list
+RQD_ = []
+
+# Scanline coordinates
+scanline_cor = []
+for i in range(0, ROW_COUNT):
+    scan_x1 = 0.0
+    scan_x2 = box_l
+    scan_y = box_w / ROW_COUNT / 2 + i * box_w / ROW_COUNT
+    scanline_cor.append([[scan_x1, scan_y], [scan_x2, scan_y]])
+
+# Global variables for visualization parameters (will be updated by trackbars)
+contour_thickness = CONTOUR_THICKNESS
+fill_color = FILL_COLOR.copy()
+line_thickness = LINE_THICKNESS
+point_size = POINT_SIZE
+text_scale = TEXT_SCALE
+rqd_text_scale = RQD_TEXT_SCALE
+rock_length_text_offset = ROCK_LENGTH_TEXT_OFFSET
+
+# Drawing toggles
+draw_points = DRAW_POINTS
+draw_lines = DRAW_LINES
+draw_texts = DRAW_TEXTS
+draw_scanlines = DRAW_SCANLINES
+scanline_thickness = SCANLINE_THICKNESS
+
+# Storage for all contours and intersection information
+contours_info = []
+
+
+def calculate_mask_overlap(contour1, contour2, image_shape):
+    """Calculate overlap ratio between two masks (intersection area / mask2 area)"""
+    h, w = image_shape[:2]
+
+    # Create two binary images
+    mask1_binary = np.zeros((h, w), dtype=np.uint8)
+    mask2_binary = np.zeros((h, w), dtype=np.uint8)
+
+    # Fill mask regions
+    cv2.fillPoly(mask1_binary, [contour1], 1)
+    cv2.fillPoly(mask2_binary, [contour2], 1)
+
+    # Calculate intersection
+    intersection = np.logical_and(mask1_binary, mask2_binary)
+
+    # Calculate mask2 area
+    mask2_area = np.sum(mask2_binary)
+
+    # Calculate intersection area
+    intersection_area = np.sum(intersection)
+
+    # Calculate overlap ratio
+    if mask2_area > 0:
+        overlap_ratio = intersection_area / mask2_area
+    else:
+        overlap_ratio = 0
+
+    return overlap_ratio
+
+
+print("Performing SAM segmentation...")
+raw_contours_info = []  # Store unfiltered contour information
+
+for result_yolo in results_yolo:
+    boxes = result_yolo.boxes
+
+    for box in boxes:
+        # Get class and bounding box coordinates
+        class_id = box.cls.item()
+        boxxyxy = box.xyxy[0]  # Get first bounding box
+
+        # Convert bounding box coordinates to Python values
+        x1, y1, x2, y2 = boxxyxy
+        x1, y1, x2, y2 = x1.item(), y1.item(), x2.item(), y2.item()
+        w = x2 - x1
+        h = y2 - y1
+
+        # Segment with bounding box prompt
+        results_sam = model_SAM(im, bboxes=boxxyxy, save=False, show=False, retina_masks=True)
+
+        for result_sam in results_sam:
+            mask_sam = result_sam.masks
+            if mask_sam is None:
+                continue
+
+            for maskContour_sam in zip(mask_sam.xy):
+                # Extract contour points
+                b_sam = []
+                for i in range(0, len(maskContour_sam[0])):
+                    b_sam.append([round(maskContour_sam[0][i][0]), round(maskContour_sam[0][i][1])])
+
+                # Ensure sufficient contour points
+                if len(b_sam) < 3:
+                    continue
+
+                con = np.array([b_sam], dtype=np.int32)
+
+                # Calculate contour area
+                area = cv2.contourArea(con)
+
+                # Store raw contour information
+                raw_contours_info.append({
+                    'contour': con,
+                    'area': area,
+                    'bounding_box': (x1, y1, x2, y2)
+                })
+
+print(f"Initial segmentation obtained {len(raw_contours_info)} contours")
+
+# Filter overlapping masks based on overlap degree
+print(f"Filtering highly overlapping masks based on mask overlap...")
+print(f"Overlap threshold: {OVERLAP_THRESHOLD}")
+
+# Sort by area in descending order
+raw_contours_info.sort(key=lambda x: x['area'], reverse=True)
+
+# Create a list to track which masks are kept
+keep_indices = list(range(len(raw_contours_info)))
+
+# Compare each mask with others for overlap
+for i in range(len(raw_contours_info)):
+    if i not in keep_indices:
+        continue
+
+    contour_i = raw_contours_info[i]['contour']
+
+    # Check if mask_i is contained by other larger masks
+    is_contained = False
+
+    # Compare with all larger masks (indices less than i)
+    for j in range(i):
+        if j not in keep_indices:
+            continue
+
+        contour_j = raw_contours_info[j]['contour']
+
+        # Calculate overlap ratio between mask_i and mask_j
+        overlap_ratio = calculate_mask_overlap(contour_j, contour_i, im.shape)
+
+        # If most of mask_i is contained by mask_j, mark as contained
+        if overlap_ratio > OVERLAP_THRESHOLD:
+            is_contained = True
+            print(f"Contour {i + 1} contained by Contour {j + 1}, overlap ratio: {overlap_ratio:.2f}")
+            break
+
+    # Remove if contained
+    if is_contained:
+        keep_indices.remove(i)
+
+# Reconstruct filtered contour list
+filtered_contours = [raw_contours_info[i] for i in keep_indices]
+
+print(f"Retained {len(filtered_contours)} contours after overlap filtering")
+
+# Calculate scanline intersections for filtered contours
+print("Calculating scanline intersections for filtered contours...")
+for contour_info in filtered_contours:
+    con = contour_info['contour']
+    x1, y1, x2, y2 = contour_info['bounding_box']
+
+    # Calculate intersections with each scanline
+    intersections = []
+    for scan_num in scanline_cor:
+        line1_x1, line1_y1, line1_x2, line1_y2 = scan_num[0][0], scan_num[0][1], scan_num[1][0], scan_num[1][1]
+
+        # Traverse all line segments to find intersection with the scanline
+        mask_contour_points = con.reshape(-1, 2).tolist()
+        mask_contour_points.append(mask_contour_points[0])  # Close contour
+
+        pt = []  # Store intersection points
+        pt_len = []  # Store x-coordinates of intersections
+
+        # Traverse line segments within contour
+        for i in range(0, len(mask_contour_points) - 1):
+            line2_x1, line2_y1, line2_x2, line2_y2 = mask_contour_points[i][0], mask_contour_points[i][1], \
+                mask_contour_points[i + 1][0], mask_contour_points[i + 1][1]
+
+            # Check if scanline y-coordinate is within segment range
+            if scan_num[0][1] < min(line2_y1, line2_y2) or scan_num[0][1] > max(line2_y1, line2_y2):
+                continue
+            else:
+                # Calculate line intersection
+                A1, A2 = line1_y2 - line1_y1, line2_y2 - line2_y1
+                B1, B2 = line1_x1 - line1_x2, line2_x1 - line2_x2
+                C1, C2 = line1_x2 * line1_y1 - line1_x1 * line1_y2, line2_x2 * line2_y1 - line2_x1 * line2_y2
+
+                if A1 * B2 - A2 * B1 == 0:  # Lines are perpendicular
+                    pt_xx = line2_x1
+                    pt_x, pt_y = round(line2_x1), round(line1_y1)
+                else:
+                    pt_x_val = (C2 * B1 - C1 * B2) / (A1 * B2 - A2 * B1)
+                    pt_y_val = (C1 * A2 - C2 * A1) / (A1 * B2 - A2 * B1)
+                    pt_x, pt_y = round(float(pt_x_val)), round(float(pt_y_val))
+                    pt_xx = float(pt_x_val)
+
+                pt_len.append([pt_xx])
+                pt.append([pt_x, pt_y])
+
+        intersections.append({
+            'scan_num': scan_num,
+            'points': pt,
+            'points_len': pt_len
+        })
+
+    # Store filtered contour and intersection information
+    contours_info.append({
+        'contour': con,
+        'intersections': intersections,
+        'bounding_box': (x1, y1, x2, y2)
+    })
+
+print(f"Final retained {len(contours_info)} contours for RQD calculation")
+
+
+# Trackbar callback functions
+def on_contour_thickness_change(val):
+    global contour_thickness
+    contour_thickness = max(1, val)
+
+
+def on_fill_color_b(val):
+    fill_color[0] = val
+
+
+def on_fill_color_g(val):
+    fill_color[1] = val
+
+
+def on_fill_color_r(val):
+    fill_color[2] = val
+
+
+def on_line_thickness_change(val):
+    global line_thickness
+    line_thickness = max(1, val)
+
+
+def on_point_size_change(val):
+    global point_size
+    point_size = max(1, val)
+
+
+def on_text_scale_change(val):
+    global text_scale
+    text_scale = max(0.1, val / 10.0)
+
+
+def on_rqd_text_scale_change(val):
+    global rqd_text_scale
+    rqd_text_scale = max(0.5, val / 10.0)
+
+
+def on_rock_length_text_offset_change(val):
+    global rock_length_text_offset
+    # Map trackbar value 0-100 to range -50 to 50
+    rock_length_text_offset = val - 50
+
+
+def on_draw_points_change(val):
+    global draw_points
+    draw_points = val
+
+
+def on_draw_lines_change(val):
+    global draw_lines
+    draw_lines = val
+
+
+def on_draw_texts_change(val):
+    global draw_texts
+    draw_texts = val
+
+
+def on_draw_scanlines_change(val):
+    global draw_scanlines
+    draw_scanlines = val
+
+
+def on_scanline_thickness_change(val):
+    global scanline_thickness
+    scanline_thickness = max(1, val)
+
+
+# Create window with better layout
+window_name = 'RQD Analysis - Core Box Visualization'
+cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(window_name, 1800, 1000)
+
+# Set window position to ensure trackbars are visible
+cv2.moveWindow(window_name, 50, 50)
+
+# Create trackbars with shortened names to avoid truncation
+cv2.createTrackbar('CntrThick', window_name, contour_thickness, 10, on_contour_thickness_change)
+cv2.createTrackbar('FillB', window_name, fill_color[0], 255, on_fill_color_b)
+cv2.createTrackbar('FillG', window_name, fill_color[1], 255, on_fill_color_g)
+cv2.createTrackbar('FillR', window_name, fill_color[2], 255, on_fill_color_r)
+cv2.createTrackbar('LineThick', window_name, line_thickness, 10, on_line_thickness_change)
+cv2.createTrackbar('PointSize', window_name, point_size, 20, on_point_size_change)
+cv2.createTrackbar('TxtScale', window_name, int(text_scale * 10), 20, on_text_scale_change)
+cv2.createTrackbar('RQDScale', window_name, int(rqd_text_scale * 10), 40, on_rqd_text_scale_change)
+cv2.createTrackbar('RockOffset', window_name, rock_length_text_offset + 50, 100,
+                   on_rock_length_text_offset_change)
+
+# Drawing toggle trackbars
+cv2.createTrackbar('DrawPts', window_name, draw_points, 1, on_draw_points_change)
+cv2.createTrackbar('DrawLines', window_name, draw_lines, 1, on_draw_lines_change)
+cv2.createTrackbar('DrawTxts', window_name, draw_texts, 1, on_draw_texts_change)
+cv2.createTrackbar('DrawScan', window_name, draw_scanlines, 1, on_draw_scanlines_change)
+cv2.createTrackbar('ScanThick', window_name, scanline_thickness, 10, on_scanline_thickness_change)
+
+# Add info display
+info_text = "Controls: 'q' - quit | 's' - save | Adjust parameters with trackbars"
+
+# Main loop for real-time visualization
+while True:
+    # Create temporary image for drawing with space for controls
+    control_panel_width = 500  # Increased width for better control display
+    info_panel_height = 150  # Increased height for better control display
+    temp_image = np.zeros((im.shape[0] + info_panel_height, im.shape[1] + control_panel_width, 3), dtype=np.uint8)
+
+    # Fill with white background
+    cv2.rectangle(temp_image, (0, 0), (im.shape[1] + control_panel_width, im.shape[0] + info_panel_height),
+                  (255, 255, 255), -1)
+
+    # Add control info panel with darker background for better contrast
+    cv2.rectangle(temp_image, (0, im.shape[0]), (im.shape[1] + control_panel_width, im.shape[0] + info_panel_height),
+                  (220, 220, 220), -1)
+
+    # Add separator line
+    cv2.line(temp_image, (0, im.shape[0]), (im.shape[1] + control_panel_width, im.shape[0]), (150, 150, 150), 2)
+
+    # Add info text
+    cv2.putText(temp_image, info_text, (20, im.shape[0] + 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
+
+    # Add configuration summary
+    config_text = f"Scanlines: {ROW_COUNT} | Cores: {len(contours_info)} | Press 's' to save"
+    cv2.putText(temp_image, config_text, (20, im.shape[0] + 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (80, 80, 80), 2)
+
+    # Add parameter value display in control panel (simulating input boxes)
+    param_start_y = im.shape[0] + 90
+    param_line_height = 25
+
+    # Create two columns for better organization
+    col1_x = 20
+    col2_x = 250
+
+    # Column 1: Visualization parameters
+    param_texts = [
+        f"Contour Thickness: {contour_thickness}",
+        f"Fill Color (B,G,R): ({fill_color[0]}, {fill_color[1]}, {fill_color[2]})",
+        f"Line Thickness: {line_thickness}",
+        f"Point Size: {point_size}",
+        f"Text Scale: {text_scale:.1f}",
+    ]
+
+    for i, text in enumerate(param_texts):
+        y_pos = param_start_y + i * param_line_height
+        cv2.putText(temp_image, text, (col1_x, y_pos),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (30, 30, 30), 1)
+
+    # Column 2: More parameters and toggles
+    param_texts2 = [
+        f"RQD Text Scale: {rqd_text_scale:.1f}",
+        f"Rock Text Offset: {rock_length_text_offset}",
+        f"Draw Points: {'ON' if draw_points else 'OFF'}",
+        f"Draw Lines: {'ON' if draw_lines else 'OFF'}",
+        f"Draw Texts: {'ON' if draw_texts else 'OFF'}",
+        f"Draw Scanlines: {'ON' if draw_scanlines else 'OFF'}",
+        f"Scanline Thickness: {scanline_thickness}",
+    ]
+
+    for i, text in enumerate(param_texts2):
+        y_pos = param_start_y + i * param_line_height
+        cv2.putText(temp_image, text, (col2_x, y_pos),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (30, 30, 30), 1)
+
+    # Reset RQD list
+    RQD_ = []
+
+    # Store all rock length annotations for later drawing
+    rock_length_annotations = []
+
+    # Process all pre-calculated contour information
+    for contour_info in contours_info:
+        con = contour_info['contour']
+        intersections = contour_info['intersections']
+        x1, y1, x2, y2 = contour_info['bounding_box']
+        w = x2 - x1
+        h = y2 - y1
+
+        # Draw contour with adjustable parameters
+        fill_color_tuple = (int(fill_color[0]), int(fill_color[1]), int(fill_color[2]))
+
+        # Draw filled polygon for core segment
+        cv2.fillPoly(temp_image, con, fill_color_tuple)
+        cv2.polylines(temp_image, con, True, (0, 0, 0), thickness=contour_thickness)
+
+        # Process intersections for each contour
+        row_ = 0
+        for intersection in intersections:
+            row_ += 1
+            scan_num = intersection['scan_num']
+            pt = intersection['points']
+            pt_len = intersection['points_len']
+
+            # Calculate rock length and RQD
+            if len(pt_len) > 0:
+                rock_len = 100 * (max(pt_len)[0] - min(pt_len)[0]) / im.shape[1]
+                if rock_len <= 10.0:
+                    continue  # Ignore segments ≤ 10 cm
+                else:
+                    RQD_.append([row_, rock_len])
+
+            # Draw scanline-core intersections
+            if len(pt) == 0:  # No intersections
+                continue
+
+            if len(pt) > 2:
+                pt_sort = sorted(pt)
+                # Draw intersection line (based on toggle)
+                if draw_lines:
+                    ptx1, pty1, ptx2, pty2 = pt_sort[0][0], pt_sort[0][1], pt_sort[len(pt_sort) - 1][0], \
+                        pt_sort[len(pt_sort) - 1][1]
+                    cv2.line(temp_image, (ptx1, pty1), (ptx2, pty2), (0, 0, 0), line_thickness)
+
+                # Draw intersection points (based on toggle)
+                if draw_points:
+                    for i in pt:
+                        cv2.circle(temp_image, (i[0], i[1]), point_size, (0, 0, 0), -1)
+
+                # Store rock length annotation (drawn later)
+                if draw_texts:
+                    ptx1, pty1, ptx2, pty2 = pt_sort[0][0], pt_sort[0][1], pt_sort[len(pt_sort) - 1][0], \
+                        pt_sort[len(pt_sort) - 1][1]
+
+                    # Calculate text size and center position
+                    text = str(round(rock_len, 1)) + ' cm'
+                    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_COMPLEX, text_scale, 2)[0]
+                    text_x = round((ptx1 + ptx2) / 2 - text_size[0] / 2)
+                    text_y = round(pty1) - rock_length_text_offset
+
+                    rock_length_annotations.append({
+                        'text': text,
+                        'pos': (text_x, text_y),
+                        'scale': text_scale
+                    })
+            else:
+                # Draw intersection line (based on toggle)
+                if draw_lines:
+                    cv2.line(temp_image, (pt[0][0], pt[0][1]), (pt[1][0], pt[1][1]), (0, 0, 0),
+                             line_thickness)
+
+                # Draw intersection points (based on toggle)
+                if draw_points:
+                    for i in pt:
+                        cv2.circle(temp_image, (i[0], i[1]), point_size, (0, 0, 0), -1)
+
+                # Store rock length annotation (drawn later)
+                if draw_texts:
+                    # Calculate text size and center position
+                    text = str(round(rock_len, 1)) + ' cm'
+                    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_COMPLEX, text_scale, 2)[0]
+                    text_x = round((pt[0][0] + pt[1][0]) / 2 - text_size[0] / 2)
+                    text_y = round(pt[0][1]) - rock_length_text_offset
+
+                    rock_length_annotations.append({
+                        'text': text,
+                        'pos': (text_x, text_y),
+                        'scale': text_scale
+                    })
+
+    # Draw scanlines (based on toggle)
+    if draw_scanlines:
+        for scan_num in scanline_cor:
+            line_x1, line_y1, line_x2, line_y2 = scan_num[0][0], scan_num[0][1], scan_num[1][0], scan_num[1][1]
+            cv2.line(temp_image, (int(line_x1), int(line_y1)), (int(line_x2), int(line_y2)),
+                     (50, 50, 50), scanline_thickness)
+
+    # Draw all rock length annotations (on top layer)
+    if draw_texts:
+        for annotation in rock_length_annotations:
+            text = annotation['text']
+            text_x, text_y = annotation['pos']
+            scale = annotation['scale']
+
+            cv2.putText(temp_image, text,
+                        (text_x, text_y),
+                        fontFace=cv2.FONT_HERSHEY_COMPLEX, fontScale=scale,
+                        color=(0, 0, 0), thickness=2)
+
+    # Calculate and display RQD for each scanline
+    para_ = 1
+    while para_ <= ROW_COUNT:
+        rock_len_sum = 0.0  # Sum of rock lengths > 10 cm
+        for i in RQD_:
+            if i[0] == para_:
+                rock_len_sum = rock_len_sum + i[1]
+        RQD = rock_len_sum
+
+        # Determine quality classification and color
+        if RQD < 25:
+            quality = 'Very poor'
+            quality_color = (0, 0, 255)  # Red
+        elif RQD < 50:
+            quality = 'Poor'
+            quality_color = (0, 100, 255)  # Orange
+        elif RQD < 75:
+            quality = 'Fair'
+            quality_color = (0, 200, 255)  # Yellow
+        elif RQD < 90:
+            quality = 'Good'
+            quality_color = (0, 255, 0)  # Green
+        else:
+            quality = 'Very Good'
+            quality_color = (0, 150, 0)  # Dark Green
+
+        # Annotate RQD value and quality (based on text drawing toggle)
+        if draw_texts:
+            # Get scanline y-coordinate
+            scan_y = scanline_cor[para_ - 1][0][1]
+
+            # Calculate RQD text size
+            rqd_text = f'RQD = {round(RQD, 1)}%'
+            rqd_text_size = cv2.getTextSize(rqd_text, cv2.FONT_HERSHEY_TRIPLEX, rqd_text_scale, 2)[0]
+
+            # Calculate quality text size
+            quality_text_size = cv2.getTextSize(quality, cv2.FONT_HERSHEY_TRIPLEX, rqd_text_scale, 2)[0]
+
+            # Fixed position: RQD above, Quality below scanline
+            rqd_y = int(scan_y - 15)  # RQD above scanline
+            quality_y = int(scan_y + quality_text_size[1] + 10)  # Quality below scanline
+
+            # Draw RQD text
+            cv2.putText(temp_image, rqd_text,
+                        (int(scanline_cor[para_ - 1][1][0]) + 15, rqd_y),
+                        fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=rqd_text_scale,
+                        color=(0, 0, 0), thickness=2)
+
+            # Draw quality text (with color coding)
+            cv2.putText(temp_image, quality,
+                        (int(scanline_cor[para_ - 1][1][0]) + 15, quality_y),
+                        fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=rqd_text_scale,
+                        color=quality_color, thickness=2)
+        para_ = para_ + 1
+
+    # Display image
+    cv2.imshow(window_name, temp_image)
+
+    # Key press handling
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q') or key == 27:  # 'q' or ESC to quit
+        break
+    elif key == ord('s'):  # 's' to save image
+        # Build save path
+        save_path = os.path.join(SAVE_DIRECTORY, f'{base_name}_RQD_Analysis.png')
+
+        # Save image
+        cv2.imwrite(save_path, temp_image)
+        print(f"Image saved: {save_path}")
+
+        # Show save confirmation
+        cv2.putText(temp_image, "Image Saved!", (im.shape[1] // 2 - 100, 50),
+                    cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 150, 0), 3)
+        cv2.imshow(window_name, temp_image)
+        cv2.waitKey(1000)  # Display message for 1 second
+
+cv2.destroyAllWindows()
