@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Single image prediction for RQD analysis with batch SAM
 from ultralytics import YOLO
 from ultralytics import SAM
 import cv2
@@ -7,13 +8,13 @@ import os
 
 # ==================== Configuration Parameters ====================
 # Path configuration
-MODEL_YOLO_PATH = r'E:\best.pt'  # YOLO model weights
-MODEL_SAM_PATH = r'E:\sam2.1_l.pt'  # SAM model weights
-SOURCE_IMAGE_PATH = r'E:\***.jpg'  # Input image path
+MODEL_YOLO_PATH = r'E:\***\weights\best.pt'  # YOLO model weights
+MODEL_SAM_PATH = r'E:\***\sam2.1_l.pt'  # SAM model weights
+SOURCE_IMAGE_PATH = r'E:\***\***.jpg'  # Input image path
 SAVE_DIRECTORY = r'E:\***'  # Output save directory
 
 # Scanline configuration
-ROW_COUNT = 8  # Number of scanlines (adjust based on the actual core box rows)
+ROW_COUNT = 8  # Number of scanlines (adjust based on actual core box layout)
 
 # Visualization parameters
 CONTOUR_THICKNESS = 2  # Thickness of contour lines
@@ -126,52 +127,58 @@ def calculate_mask_overlap(contour1, contour2, image_shape):
     return overlap_ratio
 
 
-print("Performing SAM segmentation...")
+print("Performing SAM segmentation (batch mode)...")
 raw_contours_info = []  # Store unfiltered contour information
 
+# =============== 批量 SAM 分割 ===============
 for result_yolo in results_yolo:
     boxes = result_yolo.boxes
+    if boxes is None or len(boxes) == 0:
+        continue
 
+    # 收集所有检测框的 xyxy 坐标
+    all_bboxes = []
     for box in boxes:
-        # Get class and bounding box coordinates
-        class_id = box.cls.item()
-        boxxyxy = box.xyxy[0]  # Get first bounding box
-
-        # Convert bounding box coordinates to Python values
+        boxxyxy = box.xyxy[0]  # Tensor of shape (4,)
         x1, y1, x2, y2 = boxxyxy
-        x1, y1, x2, y2 = x1.item(), y1.item(), x2.item(), y2.item()
-        w = x2 - x1
-        h = y2 - y1
+        # 转换为 Python 数值列表
+        all_bboxes.append([x1.item(), y1.item(), x2.item(), y2.item()])
 
-        # Segment with bounding box prompt
-        results_sam = model_SAM(im, bboxes=boxxyxy, save=False, show=False, retina_masks=True)
+    # 批量 SAM 分割
+    results_sam = model_SAM(im, bboxes=all_bboxes, save=False, show=False, retina_masks=True)
 
-        for result_sam in results_sam:
-            mask_sam = result_sam.masks
-            if mask_sam is None:
+    # 遍历每个检测框对应的 SAM 结果
+    for idx, result_sam in enumerate(results_sam):
+        mask_sam = result_sam.masks
+        if mask_sam is None:
+            continue
+
+        # 获取当前框的坐标
+        x1, y1, x2, y2 = all_bboxes[idx]
+
+        # 取第一个 mask
+        for maskContour_sam in zip(mask_sam.xy):
+            # 提取轮廓点
+            b_sam = []
+            for i in range(0, len(maskContour_sam[0])):
+                b_sam.append([round(maskContour_sam[0][i][0]), round(maskContour_sam[0][i][1])])
+
+            # 确保轮廓点数量足够
+            if len(b_sam) < 3:
                 continue
 
-            for maskContour_sam in zip(mask_sam.xy):
-                # Extract contour points
-                b_sam = []
-                for i in range(0, len(maskContour_sam[0])):
-                    b_sam.append([round(maskContour_sam[0][i][0]), round(maskContour_sam[0][i][1])])
+            con = np.array([b_sam], dtype=np.int32)
 
-                # Ensure sufficient contour points
-                if len(b_sam) < 3:
-                    continue
+            # 计算轮廓面积
+            area = cv2.contourArea(con)
 
-                con = np.array([b_sam], dtype=np.int32)
-
-                # Calculate contour area
-                area = cv2.contourArea(con)
-
-                # Store raw contour information
-                raw_contours_info.append({
-                    'contour': con,
-                    'area': area,
-                    'bounding_box': (x1, y1, x2, y2)
-                })
+            # 存储原始轮廓信息
+            raw_contours_info.append({
+                'contour': con,
+                'area': area,
+                'bounding_box': (x1, y1, x2, y2)
+            })
+# =============== 批量 SAM 分割结束 ===============
 
 print(f"Initial segmentation obtained {len(raw_contours_info)} contours")
 
